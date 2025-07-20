@@ -1,0 +1,7 @@
+{% if notes %}
+    {% for note in notes %}
+        <div class="note">{{ note }}</div>
+    {% endfor %}
+{% else %}
+    <div>No notes yet. Start journaling!</div>
+{% endif %}
