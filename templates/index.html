@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Journaling MVP</title>
+    <script src="/static/htmx.min.js"></script>
+    <style>
+        body { font-family: sans-serif; max-width: 600px; margin: 2rem auto; }
+        .note-list { margin-top: 2rem; }
+        .note { background: #f4f4f4; padding: 0.5rem 1rem; margin-bottom: 0.5rem; border-radius: 4px; }
+        form { display: flex; gap: 0.5rem; }
+        input[type=text] { flex: 1; padding: 0.5rem; }
+        button { padding: 0.5rem 1rem; }
+    </style>
+</head>
+<body>
+    <h1>Journaling MVP</h1>
+    <form id="note-form" hx-post="/add-note" hx-target="#notes" hx-swap="outerHTML">
+        <input type="text" name="note" placeholder="Type your note..." required autocomplete="off" />
+        <button type="submit">Add Note</button>
+    </form>
+    <div id="notes" class="note-list">
+        {% include '_notes.html' %}
+    </div>
+</body>
+</html>
