@@ -2,25 +2,388 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Journaling MVP</title>
-    <script src="/static/htmx.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Planck Voxel Visualization</title>
     <style>
-        body { font-family: sans-serif; max-width: 600px; margin: 2rem auto; }
-        .note-list { margin-top: 2rem; }
-        .note { background: #f4f4f4; padding: 0.5rem 1rem; margin-bottom: 0.5rem; border-radius: 4px; }
-        form { display: flex; gap: 0.5rem; }
-        input[type=text] { flex: 1; padding: 0.5rem; }
-        button { padding: 0.5rem 1rem; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .controls {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            backdrop-filter: blur(10px);
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .time-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        .time-slider {
+            flex: 1;
+            max-width: 300px;
+        }
+
+        .time-display {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #667eea;
+            min-width: 80px;
+        }
+
+        .visualization-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+            margin-top: 30px;
+        }
+
+        .viz-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            backdrop-filter: blur(10px);
+            text-align: center;
+        }
+
+        .viz-card h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+
+        .viz-image {
+            max-width: 100%;
+            height: auto;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #ff6b6b;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .info-panel {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 5px solid #667eea;
+        }
+
+        .info-panel h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .info-panel ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .info-panel li {
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .info-panel li:last-child {
+            border-bottom: none;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .visualization-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .time-controls {
+                flex-direction: column;
+            }
+        }
     </style>
 </head>
 <body>
-    <h1>Journaling MVP</h1>
-    <form id="note-form" hx-post="/add-note" hx-target="#notes" hx-swap="outerHTML">
-        <input type="text" name="note" placeholder="Type your note..." required autocomplete="off" />
-        <button type="submit">Add Note</button>
-    </form>
-    <div id="notes" class="note-list">
-        {% include '_notes.html' %}
+    <div class="container">
+        <div class="header">
+            <h1>🌌 3D Planck Voxel Visualization</h1>
+            <p>Explore quantum fluctuations in a 3D spatial grid over time</p>
+        </div>
+
+        <div class="info-panel">
+            <h3>📊 Simulation Parameters</h3>
+            <ul>
+                <li><strong>Grid Size:</strong> 10×10×10 voxels</li>
+                <li><strong>Time Steps:</strong> 20 ticks</li>
+                <li><strong>Fluctuation Probability:</strong> 5% per tick</li>
+                <li><strong>Visualization:</strong> Blue voxels represent active states, white represents inactive</li>
+            </ul>
+        </div>
+
+        <div class="controls">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <button class="btn" onclick="generateSimulation()">🎲 Generate New Simulation</button>
+                <button class="btn" onclick="visualizeCurrentTime()">🔄 Visualize Current Time</button>
+            </div>
+
+            <div class="time-controls">
+                <label for="timeSlider">Time Step:</label>
+                <input type="range" id="timeSlider" class="time-slider" min="0" max="19" value="0">
+                <span id="timeDisplay" class="time-display">0</span>
+            </div>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Generating visualization...</p>
+        </div>
+
+        <div class="error" id="error"></div>
+
+        <div class="visualization-grid" id="visualizationGrid">
+            <div class="viz-card">
+                <h3>⏰ Initial State (t=0)</h3>
+                <img id="t0Image" class="viz-image" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjBmMGYwIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkNsaWNrICJHZW5lcmF0ZSIgdG8gc3RhcnQ8L3RleHQ+PC9zdmc+" alt="Initial state">
+            </div>
+            <div class="viz-card">
+                <h3>⏳ Midpoint (t=10)</h3>
+                <img id="tMidImage" class="viz-image" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjBmMGYwIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkNsaWNrICJHZW5lcmF0ZSIgdG8gc3RhcnQ8L3RleHQ+PC9zdmc+" alt="Midpoint">
+            </div>
+            <div class="viz-card">
+                <h3>🏁 Final State (t=19)</h3>
+                <img id="tFinalImage" class="viz-image" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjBmMGYwIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkNsaWNrICJHZW5lcmF0ZSIgdG8gc3RhcnQ8L3RleHQ+PC9zdmc+" alt="Final state">
+            </div>
+        </div>
     </div>
+
+    <script>
+        let currentGrid = null;
+
+        // Update time display when slider changes
+        document.getElementById('timeSlider').addEventListener('input', function() {
+            document.getElementById('timeDisplay').textContent = this.value;
+        });
+
+        async function generateSimulation() {
+            showLoading(true);
+            hideError();
+
+            try {
+                const response = await fetch('/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Update images
+                    document.getElementById('t0Image').src = 'data:image/png;base64,' + data.t0;
+                    document.getElementById('tMidImage').src = 'data:image/png;base64,' + data.t_mid;
+                    document.getElementById('tFinalImage').src = 'data:image/png;base64,' + data.t_final;
+                    
+                    // Store current grid for time slider
+                    currentGrid = data;
+                } else {
+                    showError('Failed to generate simulation: ' + data.error);
+                }
+            } catch (error) {
+                showError('Network error: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function visualizeCurrentTime() {
+            const timeStep = parseInt(document.getElementById('timeSlider').value);
+            
+            if (currentGrid) {
+                // Use stored grid data
+                let imageData;
+                if (timeStep === 0) {
+                    imageData = currentGrid.t0;
+                } else if (timeStep === 10) {
+                    imageData = currentGrid.t_mid;
+                } else if (timeStep === 19) {
+                    imageData = currentGrid.t_final;
+                } else {
+                    // Generate new visualization for this specific time
+                    await generateSpecificTime(timeStep);
+                    return;
+                }
+                
+                // Update the appropriate image
+                updateImageForTime(timeStep, imageData);
+            } else {
+                showError('Please generate a simulation first');
+            }
+        }
+
+        async function generateSpecificTime(timeStep) {
+            showLoading(true);
+            hideError();
+
+            try {
+                const response = await fetch(`/visualize/${timeStep}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    updateImageForTime(timeStep, data.image);
+                } else {
+                    showError('Failed to generate visualization: ' + data.error);
+                }
+            } catch (error) {
+                showError('Network error: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function updateImageForTime(timeStep, imageData) {
+            // Create a new card for this time step if it doesn't exist
+            let card = document.querySelector(`[data-time="${timeStep}"]`);
+            if (!card) {
+                card = createTimeCard(timeStep);
+                document.getElementById('visualizationGrid').appendChild(card);
+            }
+            
+            const img = card.querySelector('.viz-image');
+            img.src = 'data:image/png;base64,' + imageData;
+        }
+
+        function createTimeCard(timeStep) {
+            const card = document.createElement('div');
+            card.className = 'viz-card';
+            card.setAttribute('data-time', timeStep);
+            
+            card.innerHTML = `
+                <h3>⏰ Time Step ${timeStep}</h3>
+                <img class="viz-image" src="data:image/png;base64," alt="Time step ${timeStep}">
+            `;
+            
+            return card;
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        function hideError() {
+            document.getElementById('error').style.display = 'none';
+        }
+
+        // Auto-generate simulation on page load
+        window.addEventListener('load', function() {
+            setTimeout(generateSimulation, 500);
+        });
+    </script>
 </body>
 </html>
